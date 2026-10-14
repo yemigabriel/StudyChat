@@ -8,7 +8,7 @@ from twilio.request_validator import RequestValidator
 from backend.app.config import Settings, get_settings
 from backend.app.database import connect
 from backend.app.incoming import IncomingMessage
-from backend.app.twilio_service import send_message
+from backend.app.message_processor import process_incoming
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -41,24 +41,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     return application
 
 
-async def deliver_reply(settings: Settings, message_sid: str, sender: str, body: str) -> None:
-    reply = (
-        "Welcome to StudyChat! Send a PDF, notebook photo, or short lecture voice note "
-        "to start studying."
-        if not body.strip()
-        else f"I received your message: {body[:1200]}\n\nSend a PDF, notebook photo, or short lecture voice note to start studying."
-    )
-    try:
-        await send_message(settings, sender, reply)
-        with connect(settings) as db:
-            db.execute("UPDATE inbound_messages SET reply_status='sent' WHERE message_sid=?", (message_sid,))
-        logger.info("Sent WhatsApp reply for inbound message (SID …%s)", message_sid[-8:])
-    except Exception:
-        logger.exception("Could not send WhatsApp reply for inbound message")
-        with connect(settings) as db:
-            db.execute("UPDATE inbound_messages SET reply_status='failed' WHERE message_sid=?", (message_sid,))
-
-
 async def twilio_webhook(request: Request, background_tasks: BackgroundTasks) -> Response:
     settings: Settings = request.app.state.settings
     if not settings.twilio_auth_token_value or not settings.public_base_url:
@@ -86,13 +68,7 @@ async def twilio_webhook(request: Request, background_tasks: BackgroundTasks) ->
         logger.info("Ignored duplicate Twilio delivery (SID …%s)", incoming.message_sid[-8:])
     elif settings.twilio_configured:
         logger.info("Accepted Twilio message (SID …%s); queued reply", incoming.message_sid[-8:])
-        background_tasks.add_task(
-            deliver_reply,
-            settings,
-            incoming.message_sid,
-            incoming.sender,
-            incoming.body,
-        )
+        background_tasks.add_task(process_incoming, settings, incoming)
 
     # Twilio expects a quick successful response; the actual reply is sent via the REST API.
     return Response(content="<?xml version=\"1.0\" encoding=\"UTF-8\"?><Response></Response>", media_type="application/xml")

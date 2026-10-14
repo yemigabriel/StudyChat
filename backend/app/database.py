@@ -9,6 +9,7 @@ def connect(settings: Settings) -> sqlite3.Connection:
     if str(path.parent) != ".":
         path.parent.mkdir(parents=True, exist_ok=True)
     connection = sqlite3.connect(path, timeout=10)
+    connection.row_factory = sqlite3.Row
     connection.execute(
         """CREATE TABLE IF NOT EXISTS inbound_messages (
             message_sid TEXT PRIMARY KEY,
@@ -17,6 +18,34 @@ def connect(settings: Settings) -> sqlite3.Connection:
             received_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             reply_status TEXT NOT NULL DEFAULT 'pending'
         )"""
+    )
+    connection.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS learners (
+            learner_id TEXT PRIMARY KEY,
+            sender TEXT NOT NULL UNIQUE,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE TABLE IF NOT EXISTS materials (
+            material_id TEXT PRIMARY KEY,
+            learner_id TEXT NOT NULL REFERENCES learners(learner_id),
+            filename TEXT NOT NULL,
+            source_type TEXT NOT NULL,
+            status TEXT NOT NULL CHECK(status IN ('processing', 'ready', 'failed')),
+            summary TEXT,
+            error TEXT,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE TABLE IF NOT EXISTS source_chunks (
+            chunk_id TEXT PRIMARY KEY,
+            material_id TEXT NOT NULL REFERENCES materials(material_id),
+            learner_id TEXT NOT NULL REFERENCES learners(learner_id),
+            source_type TEXT NOT NULL,
+            page_number INTEGER NOT NULL,
+            text TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS source_chunks_material_idx ON source_chunks(material_id);
+        """
     )
     connection.commit()
     return connection

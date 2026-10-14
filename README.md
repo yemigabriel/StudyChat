@@ -1,6 +1,6 @@
 # StudyChat
 
-StudyChat is a local-first WhatsApp study companion. This first backend slice exposes a health endpoint and a Twilio WhatsApp text webhook. For each new inbound text, it stores the Twilio message SID, responds promptly with empty TwiML, then sends a short acknowledgement through Twilio's REST API. Repeated delivery of the same SID does not send another reply.
+StudyChat is a local-first WhatsApp study companion. The backend exposes a health endpoint, a signed Twilio WhatsApp webhook, and a PDF study loop. New inbound message SIDs are persisted and deduplicated before returning empty TwiML; replies are sent afterward through Twilio's REST API. PDF uploads are downloaded from Twilio, extracted with page numbers, saved in SQLite, embedded with OpenAI, indexed in persistent ChromaDB, and summarized.
 
 ## Run locally
 
@@ -16,8 +16,7 @@ test -f .env || cp .env.example .env
 uvicorn backend.app.main:app --host 0.0.0.0 --port 8000
 ```
 
-Check `http://localhost:8000/health`; it should return `{"status":"ok"}`.
-Run focused checks with `python -m pytest -q`.
+Check `http://localhost:8000/health`; it should return `{"status":"ok"}`. Run focused checks with `python -m pytest -q`.
 
 ## Twilio testing setup
 
@@ -32,8 +31,10 @@ Twilio requires replies outside its 24-hour customer service window to use an ap
 
 ## Configuration and current scope
 
-`DATABASE_PATH` selects the local SQLite state file. Never commit `.env`, the database, or private uploads. The current reply is a connectivity acknowledgement; PDF, image, audio ingestion, AI study actions, progress, and quick replies have not been implemented. The inbound handler parses common media and button fields for the next ingestion slice but does not yet process them. Quick-reply support on this account has not been checked. Background tasks run in the single Uvicorn process and are not a durable queue.
+`DATABASE_PATH` selects SQLite state and `CHROMA_PATH` selects the persistent vector index. Configuration defaults to `gpt-4.1-mini` for text and `text-embedding-3-small` for embeddings. The OpenAI account's availability for these models was checked during implementation. Use `MAX_PDF_PAGES` and `MAX_PDF_BYTES` to tune the default 10-page and 10 MB PDF limits. Text-based PDFs are supported; scanned PDFs without selectable text are rejected with an explanation. Summary context is bounded by `MAX_CONTEXT_CHARS`.
+
+To study, send one PDF to the sandbox. StudyChat replies with a concise summary and page-aware source storage. Never commit `.env`, the database, Chroma files, or private uploads. Learner-scoped follow-up questions with grounded citations are the next implementation milestone. Notebook photos, audio ingestion, quizzes, flashcards, progress, and quick replies are not implemented. Quick-reply support on this account has not been checked. Background tasks run in the single Uvicorn process and are not a durable queue.
 
 ## Next milestones
 
-Add PDF extraction, learner-scoped material storage, explicit-embedding Chroma indexing, summaries, and grounded answers; then add quizzes, scoring, flashcards, and streaks.
+Add and verify learner-scoped grounded answers, then add quizzes, scoring, flashcards, and streaks.

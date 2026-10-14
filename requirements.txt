@@ -3,3 +3,7 @@ uvicorn[standard]>=0.30,<1
 pydantic-settings>=2.5,<3
 python-multipart>=0.0.12,<1
 twilio>=9.3,<10
+openai>=1.76,<3
+chromadb>=1,<2
+pypdf>=5,<7
+httpx>=0.27,<1

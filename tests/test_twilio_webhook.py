@@ -4,7 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 from twilio.request_validator import RequestValidator
 
-from backend.app import main
+from backend.app import main, message_processor
 from backend.app.config import Settings
 from backend.app.incoming import IncomingMessage
 
@@ -35,7 +35,7 @@ def test_root_callback_acknowledges_once_and_sends_one_reply(tmp_path, monkeypat
     async def fake_send_message(_settings, to, body):
         sent.append((to, body))
 
-    monkeypatch.setattr(main, "send_message", fake_send_message)
+    monkeypatch.setattr(message_processor, "send_message", fake_send_message)
     payload = {
         "MessageSid": "SM" + "1" * 32,
         "From": "whatsapp:+15557654321",
@@ -53,7 +53,7 @@ def test_root_callback_acknowledges_once_and_sends_one_reply(tmp_path, monkeypat
     assert first.headers["content-type"].startswith("application/xml")
     assert len(sent) == 1
     assert sent[0][0] == payload["From"]
-    assert "I received your message: hi" in sent[0][1]
+    assert sent[0][1].startswith("Hi! Welcome to StudyChat.")
     with sqlite3.connect(settings.database_path) as db:
         assert db.execute("SELECT COUNT(*) FROM inbound_messages").fetchone()[0] == 1
         assert db.execute("SELECT reply_status FROM inbound_messages").fetchone()[0] == "sent"
@@ -65,7 +65,7 @@ def test_webhook_route_validates_its_exact_public_url(tmp_path, monkeypatch):
     async def fake_send_message(*_args):
         return None
 
-    monkeypatch.setattr(main, "send_message", fake_send_message)
+    monkeypatch.setattr(message_processor, "send_message", fake_send_message)
     payload = {"MessageSid": "SM" + "2" * 32, "From": "whatsapp:+15557654321", "Body": "hi"}
 
     with TestClient(main.create_app(settings)) as client:
