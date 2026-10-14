@@ -10,6 +10,7 @@
 - Added a FastAPI app factory and SQLite-backed startup initialization for `/health`.
 - Added provider-neutral parsing for Twilio form fields, signature-validated callbacks at `/` and `/webhooks/twilio`, `MessageSid` deduplication, and background REST replies. Webhook tests cover signature rejection, root/path callbacks, parsing, and duplicate delivery.
 - Added bounded Twilio PDF download, text extraction with page numbers, stable page-aware chunk IDs, learner/material/source-chunk SQLite persistence, explicit OpenAI embeddings, persistent ChromaDB storage, and a five-point summary reply.
+- Added learner-filtered Chroma retrieval, verification against ready SQLite source chunks, bounded untrusted-source context, validated backend-generated page references, and an explicit unsupported-answer response. Regular incoming text now follows this Q&A path; greetings remain welcome replies.
 
 ## Verification
 
@@ -17,6 +18,7 @@
 - Twilio signature handling follows the current official recommendation to use the SDK `RequestValidator`, with the configured public webhook URL and request form parameters. The Twilio REST client uses an explicit 10-second HTTP timeout and a bounded application retry loop.
 - PDF extraction and persistence tests cover page metadata, size/page and scanned-PDF limits, failure status, and explicit Chroma embeddings. A separate local integration check with the configured OpenAI account embedded and summarized a synthetic PDF successfully; no private study material was used.
 - The OpenAI account was checked for `gpt-4.1-mini` and `text-embedding-3-small`. The user-provided credentials and public tunnel configuration were not printed or committed.
+- A real OpenAI API integration check with a synthetic PDF verified a supported answer and page reference, plus an unsupported question that returned “I couldn't find support for that in your uploaded materials.” Retrieval isolation, source validation, and incompatible embedding-model checks are covered by tests.
 - Installed the dependencies, started Uvicorn, and exposed it through a Cloudflare Quick Tunnel. A request to the tunnel's `/health` endpoint returned `{"status":"ok"}`.
 - The public Cloudflare `/health` endpoint returned `{"status":"ok"}`. The earlier Twilio POST to `/` returned 404; the updated callback now accepts and validates both `/` and `/webhooks/twilio`. A new live text round trip is still needed to verify the outbound reply.
 - Git initialization succeeded after workspace access was granted. Commit `5f35406` (`chore: scaffold StudyChat backend`) contains the initial scaffold.

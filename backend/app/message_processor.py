@@ -9,6 +9,7 @@ from backend.app.incoming import IncomingMessage
 from backend.app.ingestion import ingest_pdf
 from backend.app.openai_provider import OpenAIProvider
 from backend.app.database import connect
+from backend.app.retrieval import answer_question
 from backend.app.twilio_media import download_twilio_media
 from backend.app.twilio_service import send_message
 
@@ -80,7 +81,24 @@ async def process_incoming(settings: Settings, incoming: IncomingMessage) -> Non
         if normalized in {"hi", "hello", "hey"}:
             reply = "Hi! Welcome to StudyChat. Send a text-based PDF, notebook photo, or short lecture voice note to get started."
         elif incoming.body.strip():
-            reply = f"I received your message: {incoming.body[:1000]}\n\nSend a PDF to start studying."
+            provider = OpenAIProvider(settings)
+            vector_store = ChromaVectorStore(settings.chroma_path, "openai", settings.openai_embedding_model)
+            try:
+                result = await asyncio.to_thread(
+                    answer_question,
+                    settings,
+                    incoming.sender,
+                    incoming.body[:2000],
+                    provider,
+                    provider,
+                    vector_store,
+                )
+                reply = result.format_for_whatsapp()
+                if reply == "I don't have uploaded material that supports an answer yet.":
+                    reply = "Send me a text-based PDF first, then ask a question about it."
+            except Exception as exc:
+                logger.error("Question processing failed for inbound SID …%s (%s)", incoming.message_sid[-8:], exc.__class__.__name__)
+                reply = "I couldn't answer that just now. Please try again in a moment."
         else:
             reply = "Welcome to StudyChat! Send a PDF, notebook photo, or short lecture voice note to start studying."
         await _reply(settings, incoming, reply)

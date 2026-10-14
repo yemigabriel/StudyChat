@@ -33,8 +33,10 @@ Twilio requires replies outside its 24-hour customer service window to use an ap
 
 `DATABASE_PATH` selects SQLite state and `CHROMA_PATH` selects the persistent vector index. Configuration defaults to `gpt-4.1-mini` for text and `text-embedding-3-small` for embeddings. The OpenAI account's availability for these models was checked during implementation. Use `MAX_PDF_PAGES` and `MAX_PDF_BYTES` to tune the default 10-page and 10 MB PDF limits. Text-based PDFs are supported; scanned PDFs without selectable text are rejected with an explanation. Summary context is bounded by `MAX_CONTEXT_CHARS`.
 
-To study, send one PDF to the sandbox. StudyChat replies with a concise summary and page-aware source storage. Never commit `.env`, the database, Chroma files, or private uploads. Learner-scoped follow-up questions with grounded citations are the next implementation milestone. Notebook photos, audio ingestion, quizzes, flashcards, progress, and quick replies are not implemented. Quick-reply support on this account has not been checked. Background tasks run in the single Uvicorn process and are not a durable queue.
+To study, send one PDF to the sandbox. StudyChat replies with a concise summary and stores page-aware source text. Ask a follow-up question in WhatsApp to retrieve relevant text from that sender's ready materials. Answers include backend-generated page references; if the material does not support an answer, StudyChat says so. Vector search filters by learner in Chroma, then verifies ready source text against SQLite before answering. Chroma records its embedding provider/model/dimension and rejects incompatible index queries; changing the embedding model requires re-indexing.
+
+Never commit `.env`, the database, Chroma files, or private uploads. Notebook photos, audio ingestion, quizzes, flashcards, progress, and quick replies are not implemented. Quick-reply support on this account has not been checked. Background tasks run in the single Uvicorn process and are not a durable queue.
 
 ## Next milestones
 
-Add and verify learner-scoped grounded answers, then add quizzes, scoring, flashcards, and streaks.
+Add quizzes, scoring, flashcards, and streaks; then implement photo and voice-note ingestion.
