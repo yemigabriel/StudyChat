@@ -20,8 +20,8 @@ Check `http://localhost:8000/health`; it should return `{"status":"ok"}`.
 ## Twilio testing setup
 
 1. In the Twilio Console, open the WhatsApp Sandbox and join it from your WhatsApp account using the displayed join instructions.
-2. Expose port 8000 through a public HTTPS tunnel, for example `ngrok http 8000`.
-3. Set `PUBLIC_BASE_URL` to the tunnel origin (for example `https://example.ngrok.app`), without a trailing slash.
+2. Start a Cloudflare Quick Tunnel in another terminal: `cloudflared tunnel --url http://127.0.0.1:8000`.
+3. Copy the temporary `https://….trycloudflare.com` URL printed by `cloudflared` into `PUBLIC_BASE_URL` (without a trailing slash), then restart Uvicorn so it loads the new value. Keep both processes running. Quick Tunnel URLs are temporary and anyone who has the URL can access the exposed service; they stop working when `cloudflared` exits. See [Cloudflare Quick Tunnels](https://developers.cloudflare.com/tunnel/get-started/quick-tunnels/).
 4. Set `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and `TWILIO_WHATSAPP_FROM` from the Twilio Console. Use the exact sender shown there, prefixed with `whatsapp:`.
 5. Configure the Sandbox's **When a message comes in** webhook to `{PUBLIC_BASE_URL}/webhooks/twilio` with HTTP POST.
 6. Send a WhatsApp text to the sandbox. The webhook validates `X-Twilio-Signature`, saves the message, returns empty TwiML, and sends the reply using the Twilio REST API.
