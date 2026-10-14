@@ -13,23 +13,30 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    settings: Settings = app.state.settings
-    if not settings.database_path.startswith(":memory:"):
-        Path(settings.database_path).parent.mkdir(parents=True, exist_ok=True)
-    with connect(settings):
-        pass
-    yield
+def create_app(settings: Settings | None = None) -> FastAPI:
+    selected_settings = settings or get_settings()
 
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
+        db_path = selected_settings.database_path
+        if str(db_path) != ":memory:":
+            Path(db_path).parent.mkdir(parents=True, exist_ok=True)
+        with connect(selected_settings):
+            pass
+        yield
 
-app = FastAPI(title="StudyChat API", version="0.1.0", lifespan=lifespan)
-app.state.settings = get_settings()
+    application = FastAPI(title="StudyChat API", version="0.1.0", lifespan=lifespan)
+    application.state.settings = selected_settings
 
+    @application.get("/health")
+    def health() -> dict[str, str]:
+        return {"status": "ok"}
 
-@app.get("/health")
-def health() -> dict[str, str]:
-    return {"status": "ok"}
+    @application.post("/webhooks/twilio")
+    async def inbound_webhook(request: Request, background_tasks: BackgroundTasks) -> Response:
+        return await twilio_webhook(request, background_tasks)
+
+    return application
 
 
 async def deliver_reply(settings: Settings, message_sid: str, sender: str, body: str) -> None:
@@ -49,16 +56,15 @@ async def deliver_reply(settings: Settings, message_sid: str, sender: str, body:
             db.execute("UPDATE inbound_messages SET reply_status='failed' WHERE message_sid=?", (message_sid,))
 
 
-@app.post("/webhooks/twilio")
 async def twilio_webhook(request: Request, background_tasks: BackgroundTasks) -> Response:
     settings: Settings = request.app.state.settings
-    if not settings.twilio_auth_token or not settings.public_base_url:
+    if not settings.twilio_auth_token_value or not settings.public_base_url:
         raise HTTPException(status_code=503, detail="Twilio webhook validation is not configured")
 
     form = await request.form()
     webhook_url = f"{settings.public_base_url}/webhooks/twilio"
     signature = request.headers.get("X-Twilio-Signature", "")
-    if not RequestValidator(settings.twilio_auth_token).validate(webhook_url, form, signature):
+    if not RequestValidator(settings.twilio_auth_token_value).validate(webhook_url, form, signature):
         raise HTTPException(status_code=403, detail="Invalid Twilio signature")
 
     message_sid = str(form.get("MessageSid", "")).strip()
@@ -92,3 +98,6 @@ async def twilio_webhook(request: Request, background_tasks: BackgroundTasks) ->
 
     # Twilio expects a quick successful response; the actual reply is sent via the REST API.
     return Response(content="<?xml version=\"1.0\" encoding=\"UTF-8\"?><Response></Response>", media_type="application/xml")
+
+
+app = create_app()

@@ -14,7 +14,7 @@ def _send_message(settings: Settings, to: str, body: str) -> None:
     http_client = TwilioHttpClient(timeout=10, max_retries=0)
     client = Client(
         settings.twilio_account_sid,
-        settings.twilio_auth_token,
+        settings.twilio_auth_token_value,
         http_client=http_client,
     )
     last_error: Exception | None = None

@@ -10,12 +10,14 @@ Requires Python 3.11 or newer.
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install -r requirements.txt
-cp .env.example .env
-# Edit .env with Twilio credentials and the public HTTPS URL below.
+python -m pip install -r requirements-dev.txt  # focused tests
+test -f .env || cp .env.example .env
+# Fill in .env with Twilio/OpenAI credentials and the public HTTPS URL below.
 uvicorn backend.app.main:app --host 0.0.0.0 --port 8000
 ```
 
 Check `http://localhost:8000/health`; it should return `{"status":"ok"}`.
+Run focused checks with `python -m pytest -q`.
 
 ## Twilio testing setup
 
