@@ -62,3 +62,36 @@ def ingest_pdf(
         raise
 
     return IngestionResult(material_id, learner_id, len(pages), len(chunks), summary)
+
+
+def ingest_text(
+    settings: Settings, sender: str, filename: str, source_type: str,
+    source_text: str, message_sid: str,
+    embeddings_provider: EmbeddingProvider, generation_provider: GenerationProvider,
+    vector_store: VectorStore,
+) -> IngestionResult:
+    """Index one page of extracted photo/transcript text using the same persistent pipeline."""
+    from backend.app.pdf import PageText, make_chunks
+
+    if not source_text.strip():
+        raise ValueError("No readable text was extracted from this upload.")
+    learner_id = get_or_create_learner(settings, sender)
+    material_id = uuid.uuid5(uuid.NAMESPACE_URL, f"studychat:{sender}:{message_sid}").hex
+    chunks = make_chunks([PageText(1, source_text)], material_id, learner_id)
+    chunks = [type(c)(c.chunk_id, c.material_id, c.learner_id, source_type, c.page_number, c.text) for c in chunks]
+    if not begin_material(settings, material_id, learner_id, filename, chunks, source_type):
+        summary = get_material_summary(settings, material_id)
+        if summary is None:
+            raise RuntimeError("This upload is already being processed.")
+        return IngestionResult(material_id, learner_id, 1, len(chunks), summary)
+    try:
+        vectors = embeddings_provider.embed_texts([chunk.text for chunk in chunks])
+        if len(vectors) != len(chunks):
+            raise RuntimeError("Embedding provider returned an unexpected number of vectors.")
+        summary = generation_provider.summarize(source_text, settings.max_context_chars)
+        vector_store.upsert_chunks(chunks, vectors)
+        mark_material_ready(settings, material_id, summary)
+    except Exception as exc:
+        mark_material_failed(settings, material_id, str(exc) or exc.__class__.__name__)
+        raise
+    return IngestionResult(material_id, learner_id, 1, len(chunks), summary)

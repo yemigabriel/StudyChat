@@ -21,6 +21,7 @@ def begin_material(
     learner_id: str,
     filename: str,
     chunks: Sequence[ChunkRecord],
+    source_type: str = "pdf",
 ) -> bool:
     with connect(settings) as db:
         row = db.execute("SELECT status FROM materials WHERE material_id=?", (material_id,)).fetchone()
@@ -28,9 +29,9 @@ def begin_material(
             return False
         db.execute(
             """INSERT INTO materials(material_id, learner_id, filename, source_type, status)
-               VALUES (?, ?, ?, 'pdf', 'processing')
+               VALUES (?, ?, ?, ?, 'processing')
                ON CONFLICT(material_id) DO UPDATE SET status='processing', error=NULL""",
-            (material_id, learner_id, filename),
+            (material_id, learner_id, filename, source_type),
         )
         db.execute("DELETE FROM source_chunks WHERE material_id=?", (material_id,))
         db.executemany(

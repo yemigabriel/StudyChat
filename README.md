@@ -1,8 +1,8 @@
 # StudyChat
 
-StudyChat is a local-first WhatsApp study companion. The backend exposes a health endpoint, a signed Twilio WhatsApp webhook, and a PDF study loop. New inbound message SIDs are persisted and deduplicated before returning empty TwiML; replies are sent afterward through Twilio's REST API. PDF uploads are downloaded from Twilio, extracted with page numbers, saved in SQLite, embedded with OpenAI, indexed in persistent ChromaDB, and summarized.
+StudyChat is a Telegram-first study companion. Its MVP runs as a standalone `python-telegram-bot` long-polling process. FastAPI and the Twilio WhatsApp adapter remain available as optional paths; Telegram does not use a public webhook or require Twilio credentials.
 
-## Run locally
+## Setup
 
 Requires Python 3.11 or newer.
 
@@ -10,33 +10,42 @@ Requires Python 3.11 or newer.
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install -r requirements.txt
-python -m pip install -r requirements-dev.txt  # focused tests
-test -f .env || cp .env.example .env
-# Fill in .env with Twilio/OpenAI credentials and the public HTTPS URL below.
-uvicorn backend.app.main:app --host 0.0.0.0 --port 8000
+python -m pip install -r requirements-dev.txt  # optional focused tests
+cp .env.example .env  # skip if .env already exists
 ```
 
-Check `http://localhost:8000/health`; it should return `{"status":"ok"}`. Run focused checks with `python -m pytest -q`.
+Create a Telegram bot with BotFather and put its token in the local `.env` as `TELEGRAM_BOT_TOKEN`; keep `OPENAI_API_KEY` configured for study features. Do not paste the token into chat, commit it, or print it. SQLite and Chroma paths are controlled by `DATABASE_PATH` and `CHROMA_PATH`.
 
-## Twilio testing setup
+## Run Telegram
 
-1. In the Twilio Console, open the WhatsApp Sandbox and join it from your WhatsApp account using the displayed join instructions.
-2. Start a Cloudflare Quick Tunnel in another terminal: `cloudflared tunnel --url http://127.0.0.1:8000`.
-3. Copy the temporary `https://….trycloudflare.com` URL printed by `cloudflared` into `PUBLIC_BASE_URL` (without a trailing slash), then restart Uvicorn so it loads the new value. Keep both processes running. Quick Tunnel URLs are temporary and anyone who has the URL can access the exposed service; they stop working when `cloudflared` exits. See [Cloudflare Quick Tunnels](https://developers.cloudflare.com/tunnel/get-started/quick-tunnels/).
-4. Set `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and `TWILIO_WHATSAPP_FROM` from the Twilio Console. Use the exact sender shown there, prefixed with `whatsapp:`.
-5. Configure the Sandbox's **When a message comes in** webhook to `{PUBLIC_BASE_URL}/webhooks/twilio` with HTTP POST. The API also accepts the root path if that is already configured.
-6. Send a WhatsApp text to the sandbox. The webhook validates `X-Twilio-Signature`, saves the message, returns empty TwiML, and sends the reply using the Twilio REST API.
+From the repository root, start the standalone long-polling process:
 
-Twilio requires replies outside its 24-hour customer service window to use an approved template; this demo's free-form acknowledgement is intended for an active testing conversation. See [Twilio's WhatsApp API guide](https://www.twilio.com/docs/whatsapp/api) and [webhook security guide](https://www.twilio.com/docs/usage/webhooks/webhooks-security).
+```sh
+.venv/bin/python -m backend.app.telegram_bot
+```
 
-## Configuration and current scope
+Open the bot in Telegram and send `/start` in a private chat. The bot replies with a welcome and upload instructions. Private-chat learners are scoped with IDs prefixed by `telegram:`. Telegram update IDs are stored in SQLite to ignore duplicate deliveries. Do not run multiple polling processes against the same bot token.
 
-`DATABASE_PATH` selects SQLite state and `CHROMA_PATH` selects the persistent vector index. Configuration defaults to `gpt-4.1-mini` for text and `text-embedding-3-small` for embeddings. The OpenAI account's availability for these models was checked during implementation. Use `MAX_PDF_PAGES` and `MAX_PDF_BYTES` to tune the default 10-page and 10 MB PDF limits. Text-based PDFs are supported; scanned PDFs without selectable text are rejected with an explanation. Summary context is bounded by `MAX_CONTEXT_CHARS`.
+Run focused local checks with:
 
-To study, send one PDF to the sandbox. StudyChat replies with a concise summary and stores page-aware source text. Ask a follow-up question in WhatsApp to retrieve relevant text from that sender's ready materials. Answers include backend-generated page references; if the material does not support an answer, StudyChat says so. Vector search filters by learner in Chroma, then verifies ready source text against SQLite before answering. Chroma records its embedding provider/model/dimension and rejects incompatible index queries; changing the embedding model requires re-indexing.
+```sh
+.venv/bin/python -m pytest -q
+```
 
-Never commit `.env`, the database, Chroma files, or private uploads. Notebook photos, audio ingestion, quizzes, flashcards, progress, and quick replies are not implemented. Quick-reply support on this account has not been checked. Background tasks run in the single Uvicorn process and are not a durable queue.
+## FastAPI and optional Twilio
 
-## Next milestones
+FastAPI remains available for `GET /health` and the signed Twilio webhook at `POST /webhooks/twilio` (also `/`). Start it with:
 
-Add quizzes, scoring, flashcards, and streaks; then implement photo and voice-note ingestion.
+```sh
+.venv/bin/uvicorn backend.app.main:app --host 127.0.0.1 --port 8000
+```
+
+Only the Twilio adapter needs `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_FROM`, and `PUBLIC_BASE_URL`. To use it, expose port 8000 over HTTPS, then configure the exact public webhook URL in Twilio. Telegram long polling needs neither a tunnel nor `PUBLIC_BASE_URL`.
+
+## Current scope
+
+The Telegram bot accepts PDFs, notebook photos, and voice/audio files in private chats. It extracts selectable PDF text with page numbers, sends notebook images to the configured vision model, transcribes voice uploads, then stores learner-scoped source chunks in SQLite and explicit OpenAI embeddings in persistent ChromaDB. Upload replies include Summary, Flashcards, and Quiz buttons. Retrieval is learner-scoped and answers only from ready source text with page references; unsupported questions receive an explicit unsupported response. Quiz answers are scored in SQLite and repeated answers are rejected. `/start` and a PDF ingestion/reply have been verified live; buttons and other media types still need manual live checks.
+
+PDFs are limited to 10 pages and 10 MB by default; scanned PDFs without selectable text are not OCR'd. Text and embedding defaults are `gpt-4.1-mini` and `text-embedding-3-small`. Change the corresponding OpenAI model variables only when the index is re-created for a new embedding model. Twilio webhook jobs remain process-local and are not a durable queue.
+
+Never commit `.env`, private uploads, SQLite databases, Chroma files, or temporary media. The Telegram Bot API download URL contains the bot token, so the application must never log it.

@@ -11,11 +11,12 @@ class Settings(BaseSettings):
     app_env: Literal["development", "production"] = "development"
     database_path: Path = Path("./studychat.db")
     chroma_path: Path = Path("./chroma")
-    public_base_url: str = Field(min_length=1)
+    public_base_url: str | None = None
 
-    twilio_account_sid: str = Field(pattern=r"^AC[0-9a-fA-F]{32}$")
-    twilio_auth_token: SecretStr
-    twilio_whatsapp_from: str = Field(pattern=r"^whatsapp:\+\d+$")
+    twilio_account_sid: str | None = Field(default=None, pattern=r"^AC[0-9a-fA-F]{32}$")
+    twilio_auth_token: SecretStr | None = None
+    twilio_whatsapp_from: str | None = Field(default=None, pattern=r"^whatsapp:\+\d+$")
+    telegram_bot_token: SecretStr | None = None
 
     openai_api_key: SecretStr
     openai_text_model: str = "gpt-4.1-mini"
@@ -41,7 +42,9 @@ class Settings(BaseSettings):
 
     @field_validator("public_base_url")
     @classmethod
-    def validate_public_base_url(cls, value: str) -> str:
+    def validate_public_base_url(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
         value = value.rstrip("/")
         parsed = urlsplit(value)
         if parsed.scheme != "https" or not parsed.netloc or parsed.path or parsed.query or parsed.fragment:
@@ -62,8 +65,12 @@ class Settings(BaseSettings):
         return self
 
     @property
-    def twilio_auth_token_value(self) -> str:
-        return self.twilio_auth_token.get_secret_value()
+    def twilio_auth_token_value(self) -> str | None:
+        return self.twilio_auth_token.get_secret_value() if self.twilio_auth_token else None
+
+    @property
+    def telegram_bot_token_value(self) -> str | None:
+        return self.telegram_bot_token.get_secret_value() if self.telegram_bot_token else None
 
     @property
     def openai_api_key_value(self) -> str:
@@ -71,7 +78,11 @@ class Settings(BaseSettings):
 
     @property
     def twilio_configured(self) -> bool:
-        return bool(self.twilio_account_sid and self.twilio_auth_token_value and self.twilio_whatsapp_from)
+        return bool(
+            self.twilio_account_sid
+            and self.twilio_auth_token_value
+            and self.twilio_whatsapp_from
+        )
 
 
 @lru_cache

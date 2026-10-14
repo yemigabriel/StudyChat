@@ -19,6 +19,13 @@ def connect(settings: Settings) -> sqlite3.Connection:
             reply_status TEXT NOT NULL DEFAULT 'pending'
         )"""
     )
+    connection.execute(
+        """CREATE TABLE IF NOT EXISTS telegram_updates (
+            update_id INTEGER PRIMARY KEY,
+            telegram_user_id TEXT NOT NULL,
+            received_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )"""
+    )
     connection.executescript(
         """
         CREATE TABLE IF NOT EXISTS learners (
@@ -45,6 +52,15 @@ def connect(settings: Settings) -> sqlite3.Connection:
             text TEXT NOT NULL
         );
         CREATE INDEX IF NOT EXISTS source_chunks_material_idx ON source_chunks(material_id);
+        CREATE TABLE IF NOT EXISTS telegram_study_state (
+            telegram_user_id TEXT PRIMARY KEY,
+            active_material_id TEXT,
+            quiz_id TEXT,
+            quiz_json TEXT,
+            quiz_index INTEGER NOT NULL DEFAULT 0,
+            quiz_score INTEGER NOT NULL DEFAULT 0,
+            quiz_answered INTEGER NOT NULL DEFAULT 0
+        );
         """
     )
     connection.commit()

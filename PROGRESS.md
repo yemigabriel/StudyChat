@@ -2,32 +2,23 @@
 
 ## Completed
 
-- Read the existing project guidance. The repository contained only `AGENTS.md`.
-- Scaffolded a FastAPI app with `GET /health`, environment configuration, and SQLite initialization.
-- Added a signed Twilio form webhook, MessageSid deduplication, empty TwiML response, and an outbound WhatsApp REST reply scheduled after the response.
-- Added setup instructions, placeholder-only `.env.example`, and ignore rules for credentials and local data.
-- Added validated settings for Twilio/OpenAI credentials, HTTPS public URL, provider selections, and storage/model configuration.
-- Added a FastAPI app factory and SQLite-backed startup initialization for `/health`.
-- Added provider-neutral parsing for Twilio form fields, signature-validated callbacks at `/` and `/webhooks/twilio`, `MessageSid` deduplication, and background REST replies. Webhook tests cover signature rejection, root/path callbacks, parsing, and duplicate delivery.
-- Added bounded Twilio PDF download, text extraction with page numbers, stable page-aware chunk IDs, learner/material/source-chunk SQLite persistence, explicit OpenAI embeddings, persistent ChromaDB storage, and a five-point summary reply.
-- Added learner-filtered Chroma retrieval, verification against ready SQLite source chunks, bounded untrusted-source context, validated backend-generated page references, and an explicit unsupported-answer response. Regular incoming text now follows this Q&A path; greetings remain welcome replies.
-- Recorded the first real Twilio inbound delivery: the sandbox webhook accepted the user's “hi” with HTTP 200. The outbound Twilio REST API rejected the reply with error 21654. The SDK request builder was checked with a captured offline request and included only `From`, `To`, and `Body`; no `ContentVariables` were sent. A follow-up change suppresses verbose SDK request logs, avoids retries for permanent 4xx errors, and records the Twilio code without logging request credentials.
+- Added FastAPI health checks, validated configuration, a signed Twilio webhook, Twilio REST replies, and optional Twilio PDF handling. Twilio remains available but is not the MVP channel because the account's trial blocked generated outbound replies.
+- Added PDF extraction with page numbers, SQLite source persistence, explicit OpenAI embeddings, persistent ChromaDB indexing, concise summaries, and learner-filtered grounded retrieval with source references.
+- Added standalone Telegram long polling with private-chat `/start`, channel-prefixed learner identities, persistent update deduplication, and safe logging that suppresses Telegram Bot API URLs.
+- Added Telegram PDF ingestion, notebook-photo text extraction, audio transcription, persistent source indexing, summary/flashcard/quiz actions, and quiz state/scoring with duplicate-answer rejection.
 
 ## Verification
 
-- Python 3.11 and 3.14 syntax compilation passed. Configuration, health, and webhook checks: 9 tests passed.
-- Twilio signature handling follows the current official recommendation to use the SDK `RequestValidator`, with the configured public webhook URL and request form parameters. The Twilio REST client uses an explicit 10-second HTTP timeout and a bounded application retry loop.
-- PDF extraction and persistence tests cover page metadata, size/page and scanned-PDF limits, failure status, and explicit Chroma embeddings. A separate local integration check with the configured OpenAI account embedded and summarized a synthetic PDF successfully; no private study material was used.
-- The OpenAI account was checked for `gpt-4.1-mini` and `text-embedding-3-small`. The user-provided credentials and public tunnel configuration were not printed or committed.
-- A real OpenAI API integration check with a synthetic PDF verified a supported answer and page reference, plus an unsupported question that returned “I couldn't find support for that in your uploaded materials.” Retrieval isolation, source validation, and incompatible embedding-model checks are covered by tests.
-- Installed the dependencies, started Uvicorn, and exposed it through a Cloudflare Quick Tunnel. A request to the tunnel's `/health` endpoint returned `{"status":"ok"}`.
-- The public Cloudflare `/health` endpoint returned `{"status":"ok"}`. The earlier Twilio POST to `/` returned 404; the updated callback now accepts and validates both `/` and `/webhooks/twilio`. A new live text round trip is still needed to verify the outbound reply.
-- Git initialization succeeded after workspace access was granted. Commit `5f35406` (`chore: scaffold StudyChat backend`) contains the initial scaffold.
+- `.venv/bin/python -m pytest -q`: 24 passed. One third-party Chroma deprecation warning remains.
+- Started Telegram long polling with the local token. A real private `/start` update was received and its welcome reply completed successfully; the process logged `Handled Telegram /start update`.
+- The user sent a real PDF to the bot. The bot indexed it, sent a ready confirmation, and the SQLite store showed one ready PDF material. The PDF content was not printed or inspected in the verification output.
+- No live Summary/Flashcards/Quiz button tap, quiz scoring, notebook photo, or voice-note round trip has been confirmed yet.
+- Earlier OpenAI synthetic-PDF checks verified embedding, summary, learner-scoped retrieval, supported answers with references, and an unsupported answer. Earlier Cloudflare `/health` and Twilio inbound delivery checks are recorded in the Git history; Twilio outbound remained blocked by the trial restriction.
 
 ## Limitations and remaining work
 
-- The Quick Tunnel is temporary and remains available only while its `cloudflared` process is running. Its URL is configured in local `.env` and is not committed.
-- The live WhatsApp inbound path is verified (one signed `hi` accepted with HTTP 200). The full message/reply round trip is not verified because Twilio rejected the outbound API request with 21654 despite the client sending only `From`, `To`, and `Body`; investigate the Twilio account/request path before claiming outbound delivery.
-- Learner-scoped follow-up Q&A is being added as the next commit; currently non-PDF text messages receive a basic prompt to upload a PDF.
-- Button support is not verified. Media fields are parsed but files are not downloaded or processed.
-- Background tasks are process-local, not a durable queue.
+- Keep Telegram startup separate from FastAPI: run only one polling process per bot token. Telegram needs neither Twilio credentials nor `PUBLIC_BASE_URL`.
+- Quiz generation currently uses the stored summary as its source context. The current flashcard action displays all generated fronts and backs together rather than a reveal/next sequence.
+- Live photo, voice-note, quiz/button, grounded question, and duplicate-score verification remain outstanding.
+- Voice transcription requires the configured OpenAI transcription capability and compatible uploaded audio encoding. Scanned PDFs remain unsupported; use a photo of a page instead.
+- SQLite and Chroma are local persistent stores. The Twilio FastAPI background-task path remains process-local and is not a durable queue.
