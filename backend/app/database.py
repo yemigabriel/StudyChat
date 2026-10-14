@@ -59,9 +59,22 @@ def connect(settings: Settings) -> sqlite3.Connection:
             quiz_json TEXT,
             quiz_index INTEGER NOT NULL DEFAULT 0,
             quiz_score INTEGER NOT NULL DEFAULT 0,
-            quiz_answered INTEGER NOT NULL DEFAULT 0
+            quiz_answered INTEGER NOT NULL DEFAULT 0,
+            flashcards_id TEXT,
+            flashcards_json TEXT,
+            flashcard_index INTEGER NOT NULL DEFAULT 0,
+            flashcard_revealed INTEGER NOT NULL DEFAULT 0
         );
         """
     )
+    state_columns = {str(row[1]) for row in connection.execute("PRAGMA table_info(telegram_study_state)")}
+    for column, definition in (
+        ("flashcards_id", "TEXT"),
+        ("flashcards_json", "TEXT"),
+        ("flashcard_index", "INTEGER NOT NULL DEFAULT 0"),
+        ("flashcard_revealed", "INTEGER NOT NULL DEFAULT 0"),
+    ):
+        if column not in state_columns:
+            connection.execute(f"ALTER TABLE telegram_study_state ADD COLUMN {column} {definition}")
     connection.commit()
     return connection

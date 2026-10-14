@@ -73,6 +73,20 @@ def get_material_summary(settings: Settings, material_id: str) -> str | None:
     return str(row[0]) if row and row[0] is not None else None
 
 
+def ready_material_text(settings: Settings, learner_id: str, material_id: str, max_chars: int) -> str | None:
+    """Return bounded source text only for a ready material owned by this learner."""
+    with connect(settings) as db:
+        rows = db.execute(
+            """SELECT c.text FROM source_chunks c JOIN materials m ON m.material_id=c.material_id
+               WHERE c.learner_id=? AND m.learner_id=? AND c.material_id=? AND m.status='ready'
+               ORDER BY c.page_number, c.chunk_id""",
+            (learner_id, learner_id, material_id),
+        ).fetchall()
+    if not rows:
+        return None
+    return "\n\n".join(str(row[0]) for row in rows)[:max_chars]
+
+
 def ready_chunks_by_ids(settings: Settings, learner_id: str, chunk_ids: Sequence[str]) -> list[dict[str, object]]:
     if not chunk_ids:
         return []
