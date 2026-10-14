@@ -25,7 +25,7 @@ Run focused checks with `python -m pytest -q`.
 2. Start a Cloudflare Quick Tunnel in another terminal: `cloudflared tunnel --url http://127.0.0.1:8000`.
 3. Copy the temporary `https://….trycloudflare.com` URL printed by `cloudflared` into `PUBLIC_BASE_URL` (without a trailing slash), then restart Uvicorn so it loads the new value. Keep both processes running. Quick Tunnel URLs are temporary and anyone who has the URL can access the exposed service; they stop working when `cloudflared` exits. See [Cloudflare Quick Tunnels](https://developers.cloudflare.com/tunnel/get-started/quick-tunnels/).
 4. Set `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and `TWILIO_WHATSAPP_FROM` from the Twilio Console. Use the exact sender shown there, prefixed with `whatsapp:`.
-5. Configure the Sandbox's **When a message comes in** webhook to `{PUBLIC_BASE_URL}/webhooks/twilio` with HTTP POST.
+5. Configure the Sandbox's **When a message comes in** webhook to `{PUBLIC_BASE_URL}/webhooks/twilio` with HTTP POST. The API also accepts the root path if that is already configured.
 6. Send a WhatsApp text to the sandbox. The webhook validates `X-Twilio-Signature`, saves the message, returns empty TwiML, and sends the reply using the Twilio REST API.
 
 Twilio requires replies outside its 24-hour customer service window to use an approved template; this demo's free-form acknowledgement is intended for an active testing conversation. See [Twilio's WhatsApp API guide](https://www.twilio.com/docs/whatsapp/api) and [webhook security guide](https://www.twilio.com/docs/usage/webhooks/webhooks-security).

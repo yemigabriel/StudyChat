@@ -7,6 +7,7 @@ from twilio.request_validator import RequestValidator
 
 from backend.app.config import Settings, get_settings
 from backend.app.database import connect
+from backend.app.incoming import IncomingMessage
 from backend.app.twilio_service import send_message
 
 logging.basicConfig(level=logging.INFO)
@@ -32,6 +33,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     def health() -> dict[str, str]:
         return {"status": "ok"}
 
+    @application.post("/")
     @application.post("/webhooks/twilio")
     async def inbound_webhook(request: Request, background_tasks: BackgroundTasks) -> Response:
         return await twilio_webhook(request, background_tasks)
@@ -50,6 +52,7 @@ async def deliver_reply(settings: Settings, message_sid: str, sender: str, body:
         await send_message(settings, sender, reply)
         with connect(settings) as db:
             db.execute("UPDATE inbound_messages SET reply_status='sent' WHERE message_sid=?", (message_sid,))
+        logger.info("Sent WhatsApp reply for inbound message (SID …%s)", message_sid[-8:])
     except Exception:
         logger.exception("Could not send WhatsApp reply for inbound message")
         with connect(settings) as db:
@@ -62,39 +65,34 @@ async def twilio_webhook(request: Request, background_tasks: BackgroundTasks) ->
         raise HTTPException(status_code=503, detail="Twilio webhook validation is not configured")
 
     form = await request.form()
-    webhook_url = f"{settings.public_base_url}/webhooks/twilio"
+    webhook_url = settings.public_base_url + request.url.path
     signature = request.headers.get("X-Twilio-Signature", "")
     if not RequestValidator(settings.twilio_auth_token_value).validate(webhook_url, form, signature):
         raise HTTPException(status_code=403, detail="Invalid Twilio signature")
 
-    message_sid = str(form.get("MessageSid", "")).strip()
-    sender = str(form.get("From", "")).strip()
-    body = str(form.get("Body", ""))
-    if not message_sid or not sender:
-        raise HTTPException(status_code=400, detail="Missing MessageSid or From")
+    try:
+        incoming = IncomingMessage.from_form(form)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     with connect(settings) as db:
         cursor = db.execute(
             "INSERT OR IGNORE INTO inbound_messages(message_sid, sender, body) VALUES (?, ?, ?)",
-            (message_sid, sender, body),
+            (incoming.message_sid, incoming.sender, incoming.body),
         )
         is_new = cursor.rowcount == 1
 
-    # Parse media/button fields now so the normalized webhook surface is ready for ingestion work.
-    _incoming = {
-        "message_sid": message_sid,
-        "sender": sender,
-        "body": body,
-        "num_media": int(form.get("NumMedia", "0") or 0),
-        "media_url": form.get("MediaUrl0"),
-        "media_content_type": form.get("MediaContentType0"),
-        "button_payload": form.get("ButtonPayload"),
-        "button_text": form.get("ButtonText"),
-    }
-    if is_new and settings.twilio_configured:
-        background_tasks.add_task(deliver_reply, settings, message_sid, sender, body)
-    elif is_new:
-        logger.warning("Inbound message stored; Twilio outbound credentials are not configured")
+    if not is_new:
+        logger.info("Ignored duplicate Twilio delivery (SID …%s)", incoming.message_sid[-8:])
+    elif settings.twilio_configured:
+        logger.info("Accepted Twilio message (SID …%s); queued reply", incoming.message_sid[-8:])
+        background_tasks.add_task(
+            deliver_reply,
+            settings,
+            incoming.message_sid,
+            incoming.sender,
+            incoming.body,
+        )
 
     # Twilio expects a quick successful response; the actual reply is sent via the REST API.
     return Response(content="<?xml version=\"1.0\" encoding=\"UTF-8\"?><Response></Response>", media_type="application/xml")
