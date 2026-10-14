@@ -11,6 +11,7 @@
 - Added provider-neutral parsing for Twilio form fields, signature-validated callbacks at `/` and `/webhooks/twilio`, `MessageSid` deduplication, and background REST replies. Webhook tests cover signature rejection, root/path callbacks, parsing, and duplicate delivery.
 - Added bounded Twilio PDF download, text extraction with page numbers, stable page-aware chunk IDs, learner/material/source-chunk SQLite persistence, explicit OpenAI embeddings, persistent ChromaDB storage, and a five-point summary reply.
 - Added learner-filtered Chroma retrieval, verification against ready SQLite source chunks, bounded untrusted-source context, validated backend-generated page references, and an explicit unsupported-answer response. Regular incoming text now follows this Q&A path; greetings remain welcome replies.
+- Recorded the first real Twilio inbound delivery: the sandbox webhook accepted the user's “hi” with HTTP 200. The outbound Twilio REST API rejected the reply with error 21654. The SDK request builder was checked with a captured offline request and included only `From`, `To`, and `Body`; no `ContentVariables` were sent. A follow-up change suppresses verbose SDK request logs, avoids retries for permanent 4xx errors, and records the Twilio code without logging request credentials.
 
 ## Verification
 
@@ -26,7 +27,7 @@
 ## Limitations and remaining work
 
 - The Quick Tunnel is temporary and remains available only while its `cloudflared` process is running. Its URL is configured in local `.env` and is not committed.
-- Live WhatsApp inbound/reply is still unverified: earlier Twilio callbacks hit a 404 before the root callback was added, and the updated server has not yet logged a successful new text delivery and REST reply.
+- The live WhatsApp inbound path is verified (one signed `hi` accepted with HTTP 200). The full message/reply round trip is not verified because Twilio rejected the outbound API request with 21654 despite the client sending only `From`, `To`, and `Body`; investigate the Twilio account/request path before claiming outbound delivery.
 - Learner-scoped follow-up Q&A is being added as the next commit; currently non-PDF text messages receive a basic prompt to upload a PDF.
 - Button support is not verified. Media fields are parsed but files are not downloaded or processed.
 - Background tasks are process-local, not a durable queue.

@@ -11,7 +11,7 @@ from backend.app.openai_provider import OpenAIProvider
 from backend.app.database import connect
 from backend.app.retrieval import answer_question
 from backend.app.twilio_media import download_twilio_media
-from backend.app.twilio_service import send_message
+from backend.app.twilio_service import TwilioSendError, send_message
 
 logger = logging.getLogger(__name__)
 _sender_locks: dict[tuple[int, str], asyncio.Lock] = {}
@@ -29,7 +29,13 @@ async def _reply(settings: Settings, incoming: IncomingMessage, text: str) -> No
         logger.info("Sent WhatsApp reply for inbound message (SID …%s)", incoming.message_sid[-8:])
     except Exception as exc:
         _set_reply_status(settings, incoming.message_sid, "failed")
-        logger.error("WhatsApp send failed for inbound SID …%s (%s)", incoming.message_sid[-8:], exc.__class__.__name__)
+        if isinstance(exc, TwilioSendError):
+            logger.error(
+                "WhatsApp send failed for inbound SID …%s (Twilio HTTP %s, error %s)",
+                incoming.message_sid[-8:], exc.status, exc.code,
+            )
+        else:
+            logger.error("WhatsApp send failed for inbound SID …%s (%s)", incoming.message_sid[-8:], exc.__class__.__name__)
 
 
 async def _process_pdf(settings: Settings, incoming: IncomingMessage) -> None:

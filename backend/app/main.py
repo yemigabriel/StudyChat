@@ -11,6 +11,7 @@ from backend.app.incoming import IncomingMessage
 from backend.app.message_processor import process_incoming
 
 logging.basicConfig(level=logging.INFO)
+logging.getLogger("twilio.http_client").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
 

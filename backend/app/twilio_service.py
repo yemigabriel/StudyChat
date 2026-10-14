@@ -10,6 +10,17 @@ from backend.app.config import Settings
 logger = logging.getLogger(__name__)
 
 
+class TwilioSendError(RuntimeError):
+    def __init__(self, code: int | None, status: int | None):
+        self.code = code
+        self.status = status
+        if code == 21654:
+            message = "Twilio rejected the message (21654: ContentSid required with ContentVariables)."
+        else:
+            message = f"Twilio rejected the message (HTTP {status or 'unknown'}, error {code or 'unknown'})."
+        super().__init__(message)
+
+
 def _send_message(settings: Settings, to: str, body: str) -> None:
     http_client = TwilioHttpClient(timeout=10, max_retries=0)
     client = Client(
@@ -24,9 +35,13 @@ def _send_message(settings: Settings, to: str, body: str) -> None:
             return
         except Exception as exc:
             last_error = exc
+            status = getattr(exc, "status", None)
+            code = getattr(exc, "code", None)
+            if status and status < 500 and status != 429:
+                raise TwilioSendError(code, status) from exc
             if attempt < 2:
                 time.sleep(0.5 * (attempt + 1))
-    raise RuntimeError("Twilio message send failed after bounded retries") from last_error
+    raise TwilioSendError(getattr(last_error, "code", None), getattr(last_error, "status", None)) from last_error
 
 
 async def send_message(settings: Settings, to: str, body: str) -> None:
