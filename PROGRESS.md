@@ -12,7 +12,7 @@
 - Python 3.11 and 3.14 syntax compilation passed.
 - Twilio signature handling follows the current official recommendation to use the SDK `RequestValidator`, with the configured public webhook URL and request form parameters. The Twilio REST client uses an explicit 10-second HTTP timeout and a bounded application retry loop.
 - Python dependencies are not installed. A local `pip install` attempt failed because package-index DNS/network access is unavailable, so the app has not been run. No Twilio credentials or public tunnel are configured here, so a live WhatsApp round trip has not been performed.
-- Git initialization was attempted but the workspace marks `.git` as read-only; Git returned `Operation not permitted`. No commit could be created.
+- Git initialization succeeded after workspace access was granted. Commit `5f35406` (`chore: scaffold StudyChat backend`) contains the initial scaffold.
 
 ## Limitations and remaining work
 
