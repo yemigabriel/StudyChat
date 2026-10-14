@@ -9,7 +9,7 @@
 
 ## Verification
 
-- `.venv/bin/python -m pytest -q`: 24 passed. One third-party Chroma deprecation warning remains.
+- `.venv/bin/python -m pytest -q`: 32 passed. One third-party Chroma deprecation warning remains.
 - Started Telegram long polling with the local token. A real private `/start` update was received and its welcome reply completed successfully; the process logged `Handled Telegram /start update`.
 - The user sent a real PDF to the bot. The bot indexed it, sent a ready confirmation, and the SQLite store showed one ready PDF material. The PDF content was not printed or inspected in the verification output.
 - Live Summary, Flashcards generation/reveal/advance, Quiz generation, and three answer scores were verified on the uploaded PDF. The completed quiz persisted 2/3. The last answer feedback now precedes a separate completion/score message; quiz and flashcard progress indicators are added and covered by tests. A repeated quiz answer has local test coverage but a manual live retap remains unverified. Button-action logs record actions and quiz outcomes without logging user content.
