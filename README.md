@@ -2,6 +2,47 @@
 
 StudyChat is a Telegram-first study companion. Its MVP runs as a standalone `python-telegram-bot` long-polling process. FastAPI and the Twilio WhatsApp adapter remain available as optional paths; Telegram does not use a public webhook or require Twilio credentials.
 
+## Screenshots
+
+<table width="100%">
+  <tr>
+    <td width="25%" valign="top">
+      <img
+        src="https://github.com/user-attachments/assets/ffc70bb1-8798-4eaf-b9f9-200968c4aadd"
+        alt="StudyChat screenshot 4"
+        width="100%"
+      />
+    </td>
+    <td width="25%" valign="top">
+      <img
+        src="https://github.com/user-attachments/assets/8aecd57c-72ab-4476-8f76-09c912bde353"
+        alt="StudyChat screenshot 3"
+        width="100%"
+      />
+    </td>
+    <td width="25%" valign="top">
+      <img
+        src="https://github.com/user-attachments/assets/36fa7c90-5d43-42d2-9490-40ab066c0db6"
+        alt="StudyChat screenshot 2"
+        width="100%"
+      />
+    </td>
+    <td width="25%" valign="top">
+      <img
+        src="https://github.com/user-attachments/assets/56dea9e4-3457-409f-bc81-3d10b28ef5ba"
+        alt="StudyChat screenshot 1"
+        width="100%"
+      />
+    </td>
+  </tr>
+</table>
+
+<!-- <img width="380" height="848" alt="Screenshot 2026-10-14 at 22 02 52" src="https://github.com/user-attachments/assets/56dea9e4-3457-409f-bc81-3d10b28ef5ba" />
+<img width="381" height="839" alt="Screenshot 2026-10-14 at 22 02 11" src="https://github.com/user-attachments/assets/36fa7c90-5d43-42d2-9490-40ab066c0db6" />
+<img width="377" height="845" alt="Screenshot 2026-10-14 at 22 01 09" src="https://github.com/user-attachments/assets/8aecd57c-72ab-4476-8f76-09c912bde353" />
+<img width="384" height="845" alt="Screenshot 2026-10-14 at 21 59 56" src="https://github.com/user-attachments/assets/ffc70bb1-8798-4eaf-b9f9-200968c4aadd" /> -->
+
+
 ## Setup
 
 Requires Python 3.11 or newer.
